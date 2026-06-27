@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>わこはる先生、仕事です！</title>
+<style>
+  :root{
+    --ink:#2a241c;
+    --paper:#f4ead6;
+    --accent:#e8412e;
+    --accent2:#f7b500;
+    --good:#39b54a;
+    --warn:#f7b500;
+    --bad:#e8412e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;background:#111;
+    font-family:"Hiragino Maru Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+    -webkit-user-select:none;user-select:none;touch-action:none;
+  }
+  #fit{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  /* 論理1080x1920を transform:scale でフィット */
+  #stage{
+    position:relative;width:1080px;height:1920px;flex:0 0 auto;
+    transform-origin:center center;background:#000;overflow:hidden;
+    box-shadow:0 0 60px rgba(0,0,0,.6);
+  }
+  .screen{
+    position:absolute;inset:0;display:none;
+    background-size:cover;background-position:center;
+  }
+  .screen.active{display:block;}
+
+  /* ===== 共通テキスト ===== */
+  .title-jp{font-weight:900;letter-spacing:.04em;}
+  .panel-dark{background:rgba(10,8,6,.55);}
+
+  /* ===== タイトル ===== */
+  #s-title{background-image:url("assets/artist_desk_title.png?v=2");}
+  #s-title::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.55));}
+  .title-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px;z-index:2;}
+  .title-main{
+    font-size:92px;font-weight:900;color:#fff;line-height:1.3;white-space:nowrap;
+    text-shadow:0 6px 0 var(--accent),0 0 30px rgba(0,0,0,.8);
+    transform:rotate(-2deg);
+  }
+  .title-copy{margin-top:60px;font-size:42px;color:var(--accent2);font-weight:800;text-shadow:0 3px 12px rgba(0,0,0,.9);}
+  .title-tap{margin-top:160px;font-size:46px;color:#fff;font-weight:800;text-shadow:0 3px 12px rgba(0,0,0,.9);animation:blink 1.1s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ===== 導入 / リザルト 共通の文章レイヤ ===== */
+  #s-intro{background-image:url("assets/office_intro.png");}
+  #s-intro::before{content:"";position:absolute;inset:0;background:rgba(8,10,18,.45);}
+  .intro-wrap{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 90px;z-index:2;}
+  .serif{
+    font-size:58px;color:#fff;font-weight:800;line-height:1.5;
+    text-shadow:0 4px 16px rgba(0,0,0,.9);opacity:0;transform:translateY(20px);
+  }
+  .serif .sub{display:block;font-size:34px;color:#cdd3dd;margin-top:8px;font-weight:600;}
+  .serif.show{animation:rise .6s ease forwards;}
+  @keyframes rise{to{opacity:1;transform:translateY(0)}}
+  .intro-tap{position:absolute;bottom:120px;left:0;right:0;text-align:center;font-size:38px;color:#fff;opacity:0;animation:blink 1.1s 1s infinite, fadein .5s 1s forwards;}
+  @keyframes fadein{to{opacity:1}}
+
+  /* ===== プレイ ===== */
+  #s-play{background-image:url("assets/workroom_night.png");}
+  #s-play::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.30);}
+  .hud{position:absolute;top:0;left:0;right:0;padding:36px 44px 70px;z-index:30;display:flex;align-items:center;gap:30px;
+    background:linear-gradient(180deg, rgba(8,6,4,.94) 0%, rgba(8,6,4,.9) 50%, rgba(8,6,4,0) 100%);}
+  .hud-block{flex:1;}
+  .hud-label{font-size:30px;color:#fff;font-weight:800;text-shadow:0 2px 6px #000;margin-bottom:10px;}
+  .gauge{height:34px;border:4px solid #fff;border-radius:20px;background:rgba(0,0,0,.45);overflow:hidden;box-shadow:0 0 0 3px rgba(0,0,0,.4);}
+  .gauge-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--good),#7cd14a);transition:width .15s linear,background .3s;border-radius:14px;}
+  .timer{font-size:54px;color:#fff;font-weight:900;text-shadow:0 3px 8px #000;text-align:right;font-variant-numeric:tabular-nums;}
+  .timer .cap{font-size:26px;display:block;font-weight:700;color:#ffe;}
+
+  #wako{
+    position:absolute;left:50%;top:55%;width:380px;transform:translate(-50%,-50%);
+    z-index:10;filter:drop-shadow(0 10px 24px rgba(0,0,0,.6));pointer-events:none;
+    transition:left .9s cubic-bezier(.45,0,.2,1), top .9s cubic-bezier(.45,0,.2,1);
+  }
+  #wako.wander{pointer-events:auto;cursor:pointer;animation:wakowobble 1.4s ease-in-out infinite;}
+  @keyframes wakowobble{0%,100%{transform:translate(-50%,-50%) rotate(-3deg)}50%{transform:translate(-50%,-53%) rotate(3deg)}}
+  #wako.hit{animation:wakohit .35s ease;}
+  @keyframes wakohit{0%,100%{transform:translate(-50%,-50%)}25%{transform:translate(-58%,-50%) rotate(-4deg)}75%{transform:translate(-42%,-50%) rotate(4deg)}}
+
+  /* 漫画のセリフ枠（吹き出し） */
+  .lure{
+    position:absolute;z-index:20;padding:18px 30px;border-radius:28px;
+    font-size:38px;font-weight:800;color:#1b1b1b;white-space:nowrap;
+    background:#fff;border:5px solid #1b1b1b;
+    box-shadow:0 6px 16px rgba(0,0,0,.45);transform:translate(-50%,-50%);
+    will-change:left,top;cursor:pointer;
+  }
+  .lure::after{content:"";position:absolute;left:30px;bottom:-22px;width:0;height:0;
+    border-left:13px solid transparent;border-right:13px solid transparent;border-top:24px solid #1b1b1b;}
+  .lure::before{content:"";position:absolute;left:34px;bottom:-12px;z-index:1;width:0;height:0;
+    border-left:9px solid transparent;border-right:9px solid transparent;border-top:18px solid #fff;}
+  /* 重い誘惑＝トゲトゲの叫び吹き出し */
+  .lure.heavy{
+    background:#ff3b30;color:#fff;border:0;font-size:44px;font-weight:900;
+    padding:26px 48px;-webkit-text-stroke:1.5px #7a0d00;border-radius:0;
+    clip-path:polygon(0% 28%,9% 14%,12% 26%,22% 6%,29% 22%,40% 4%,48% 20%,58% 2%,66% 20%,77% 5%,84% 22%,94% 12%,100% 30%,93% 46%,100% 64%,90% 76%,82% 66%,76% 86%,64% 72%,55% 92%,46% 72%,37% 88%,28% 70%,18% 82%,12% 66%,3% 60%);
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));
+  }
+  .lure.heavy::after,.lure.heavy::before{display:none;}
+  .lure.pop{animation:pop .25s ease forwards;}
+  @keyframes pop{to{transform:translate(-50%,-50%) scale(1.7);opacity:0}}
+
+  /* 誘惑出現時の効果音文字 */
+  .sfx{position:absolute;z-index:19;font-size:34px;font-weight:900;color:#fff;
+    -webkit-text-stroke:2.5px #1b1b1b;white-space:nowrap;pointer-events:none;
+    transform:translate(-50%,-50%) rotate(-12deg);animation:sfxpop .9s ease forwards;}
+  @keyframes sfxpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-12deg)}
+    30%{opacity:1;transform:translate(-50%,-70%) scale(1.05) rotate(-12deg)}
+    100%{opacity:0;transform:translate(-50%,-120%) scale(1) rotate(-12deg)}}
+
+  /* わこはる先生のつぶやき吹き出し */
+  .wako-bubble{position:absolute;z-index:24;padding:14px 26px;border-radius:24px;
+    font-size:34px;font-weight:800;color:#1b1b1b;white-space:nowrap;
+    background:#fffceb;border:4px solid #1b1b1b;box-shadow:0 5px 12px rgba(0,0,0,.4);
+    transform:translate(-50%,-100%);pointer-events:none;animation:wbubble 1.9s ease forwards;}
+  .wako-bubble::after{content:"";position:absolute;left:50%;bottom:-16px;margin-left:-10px;width:0;height:0;
+    border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid #1b1b1b;}
+  .wako-bubble::before{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-6px;z-index:1;width:0;height:0;
+    border-left:6px solid transparent;border-right:6px solid transparent;border-top:12px solid #fffceb;}
+  @keyframes wbubble{0%{opacity:0;transform:translate(-50%,-90%) scale(.7)}
+    12%{opacity:1;transform:translate(-50%,-100%) scale(1)}85%{opacity:1}
+    100%{opacity:0;transform:translate(-50%,-108%) scale(1)}}
+
+  /* 撃ち落とし時の注意（ドンッ！） */
+  .scold{
+    position:absolute;z-index:25;transform:translate(-50%,-50%) rotate(-5deg);
+    font-size:58px;font-weight:900;color:#fff;white-space:nowrap;
+    padding:16px 34px;border-radius:10px;background:var(--accent);
+    border:6px solid #fff;box-shadow:0 0 0 7px var(--ink),0 12px 26px rgba(0,0,0,.6);
+    -webkit-text-stroke:2px #6e0c00;text-shadow:0 5px 0 #7a0d00;
+    animation:scoldbang .9s cubic-bezier(.2,1.5,.35,1) forwards;pointer-events:none;
+  }
+  .scold::before{content:"";position:absolute;inset:-70px;z-index:-1;
+    background:radial-gradient(circle, rgba(255,221,90,.6) 0%, rgba(255,221,90,0) 62%);}
+  /* 漫画の集中線（スピード線） */
+  .scold::after{content:"";position:absolute;inset:-150px;z-index:-2;
+    background:repeating-conic-gradient(from 0deg, rgba(255,255,255,.22) 0deg 3deg, transparent 3deg 11deg);
+    -webkit-mask:radial-gradient(circle, #000 16%, transparent 60%);
+            mask:radial-gradient(circle, #000 16%, transparent 60%);}
+  .scold.big{font-size:72px;}
+  @keyframes scoldbang{
+    0%{opacity:0;transform:translate(-50%,-50%) rotate(-5deg) scale(.3)}
+    18%{opacity:1;transform:translate(-50%,-66%) rotate(-5deg) scale(1.3)}
+    34%{transform:translate(-50%,-68%) rotate(-5deg) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-120%) rotate(-5deg) scale(1)}
+  }
+
+  /* 撃破の擬音（ドンッ！） */
+  .bang{position:absolute;z-index:26;font-size:80px;font-weight:900;color:#ffd400;
+    -webkit-text-stroke:4px #1b1b1b;white-space:nowrap;pointer-events:none;
+    text-shadow:0 6px 0 #b35a00;transform:translate(-50%,-50%) rotate(-10deg);
+    animation:bangpop .85s cubic-bezier(.2,1.6,.4,1) forwards;}
+  @keyframes bangpop{0%{opacity:0;transform:translate(-50%,-50%) rotate(-10deg) scale(.2)}
+    25%{opacity:1;transform:translate(-50%,-80%) rotate(-10deg) scale(1.25)}
+    40%{transform:translate(-50%,-82%) rotate(-10deg) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-150%) rotate(-10deg) scale(1)}}
+
+  /* はるまき各種 */
+  .harumaki-intro{position:absolute;top:130px;left:50%;transform:translateX(-50%);
+    width:430px;border-radius:24px;border:6px solid #fff;box-shadow:0 12px 32px rgba(0,0,0,.6);z-index:3;}
+  #harumakiPlay{position:absolute;top:150px;right:40px;width:150px;height:150px;border-radius:50%;
+    object-fit:cover;object-position:50% 28%;border:5px solid #fff;
+    box-shadow:0 6px 16px rgba(0,0,0,.55);z-index:30;background:#aeb9c6;}
+  #harumakiPlay.react{animation:hmreact .35s ease;}
+  @keyframes hmreact{0%,100%{transform:rotate(0) scale(1)}30%{transform:rotate(-9deg) scale(1.1)}70%{transform:rotate(9deg) scale(1.1)}}
+  .harumaki-res{width:210px;border-radius:20px;border:5px solid #fff;
+    box-shadow:0 8px 22px rgba(0,0,0,.6);margin-bottom:28px;}
+  #wanderWarn{position:absolute;top:290px;left:50%;transform:translateX(-50%);z-index:35;display:none;
+    font-size:46px;font-weight:900;color:#fff;white-space:nowrap;padding:14px 34px;
+    background:var(--bad);border:5px solid #fff;border-radius:12px;
+    box-shadow:0 0 0 5px var(--ink),0 8px 22px rgba(0,0,0,.6);
+    animation:warnblink .6s steps(1) infinite;}
+  #wanderWarn.on{display:block;}
+  @keyframes warnblink{0%,100%{opacity:1}50%{opacity:.35}}
+  #s-play.shake{animation:shake .28s ease;}
+  @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-10px,6px)}45%{transform:translate(9px,-7px)}70%{transform:translate(-6px,4px)}}
+
+  #flash{position:absolute;inset:0;background:#fff;opacity:0;z-index:40;pointer-events:none;}
+  #flash.on{animation:flash .25s ease;}
+  @keyframes flash{0%{opacity:.0}30%{opacity:.55}100%{opacity:0}}
+
+  .countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;font-size:300px;font-weight:900;color:#fff;text-shadow:0 0 40px var(--accent),0 8px 0 rgba(0,0,0,.5);pointer-events:none;}
+
+  /* ===== エンディング ===== */
+  #s-ending{background-image:url("assets/workroom_celebration.png?v=2");}
+  #s-ending::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.25);}
+  .end-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5;text-align:center;}
+  .end-deliver{font-size:130px;font-weight:900;color:#fff;text-shadow:0 0 30px var(--accent2),0 8px 0 var(--accent);opacity:0;}
+  .end-deliver.show{animation:bang .6s cubic-bezier(.2,1.4,.4,1) forwards;}
+  @keyframes bang{0%{opacity:0;transform:scale(.3) rotate(-8deg)}100%{opacity:1;transform:scale(1) rotate(-3deg)}}
+  #endWako{width:460px;margin-top:30px;opacity:0;filter:drop-shadow(0 12px 30px rgba(0,0,0,.6));}
+  #endWako.show{animation:popin .5s .3s ease forwards;}
+  @keyframes popin{0%{opacity:0;transform:translateY(40px) scale(.8)}100%{opacity:1;transform:translateY(0) scale(1)}}
+  .end-cheer{margin-top:40px;font-size:56px;font-weight:900;color:var(--accent2);text-shadow:0 4px 14px rgba(0,0,0,.9);opacity:0;}
+  .end-cheer.show{animation:fadein .5s .9s forwards;}
+  .end-tap{position:absolute;bottom:110px;left:0;right:0;text-align:center;font-size:36px;color:#fff;opacity:0;animation:blink 1.1s 1.6s infinite,fadein .5s 1.6s forwards;}
+  .confetti{position:absolute;width:18px;height:28px;top:-40px;z-index:3;border-radius:3px;}
+
+  /* ===== リザルト ===== */
+  #s-result{background-image:url("assets/office_intro.png");}
+  #s-result::before{content:"";position:absolute;inset:0;background:rgba(6,8,14,.62);}
+  .res-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 90px;z-index:2;text-align:center;}
+  .res-title{font-size:64px;font-weight:900;color:#fff;margin-bottom:60px;text-shadow:0 4px 12px #000;}
+  .res-row{display:flex;justify-content:space-between;align-items:center;width:100%;font-size:46px;color:#fff;font-weight:800;margin:18px 0;text-shadow:0 3px 8px #000;}
+  .res-row .v{font-size:58px;color:var(--accent2);}
+  .res-gauge{width:100%;height:38px;border:4px solid #fff;border-radius:20px;overflow:hidden;background:rgba(0,0,0,.5);margin-top:8px;}
+  .res-gauge-fill{height:100%;background:linear-gradient(90deg,var(--good),#7cd14a);border-radius:14px;}
+  .res-line{width:100%;height:3px;background:rgba(255,255,255,.4);margin:50px 0;}
+  .res-serif{font-size:50px;color:#fff;font-weight:800;line-height:1.5;text-shadow:0 3px 10px #000;}
+  .res-serif .sub{display:block;font-size:38px;color:#cdd3dd;margin-top:12px;}
+  .res-btns{display:flex;gap:40px;margin-top:80px;}
+  .btn{
+    font-size:44px;font-weight:900;color:#fff;padding:28px 50px;border-radius:50px;border:5px solid #fff;
+    background:var(--accent);box-shadow:0 8px 0 rgba(0,0,0,.35);cursor:pointer;
+  }
+  .btn.alt{background:#3a4a66;}
+  .btn:active{transform:translateY(4px);box-shadow:0 4px 0 rgba(0,0,0,.35);}
+</style>
+</head>
+<body>
+<div id="fit">
+  <div id="stage">
+
+    <!-- フェーズ1 タイトル -->
+    <section id="s-title" class="screen active">
+      <div class="title-wrap">
+        <div class="title-main">わこはる先生、<br>仕事です！</div>
+        <div class="title-copy">誘惑が、来る。でも納期も、来る。</div>
+        <div class="title-tap">タップではじめる</div>
+      </div>
+    </section>
+
+    <!-- フェーズ2 導入 -->
+    <section id="s-intro" class="screen">
+      <img class="harumaki-intro" src="assets/harumaki.jpg" alt="はるまき">
+      <div class="intro-wrap" id="introWrap"></div>
+      <div class="intro-tap" id="introTap">タップで進む</div>
+    </section>
+
+    <!-- フェーズ3 プレイ -->
+    <section id="s-play" class="screen">
+      <div class="hud">
+        <div class="hud-block">
+          <div class="hud-label">集中力</div>
+          <div class="gauge"><div class="gauge-fill" id="hpFill"></div></div>
+        </div>
+        <div class="hud-block" style="flex:0 0 auto;">
+          <div class="timer"><span class="cap">納期まで</span><span id="timerVal">00:60</span></div>
+        </div>
+      </div>
+      <img id="harumakiPlay" src="assets/harumaki.jpg" alt="はるまき">
+      <img id="wako" src="assets/wako.png" alt="わこはる">
+      <div id="wanderWarn">先生を連れ戻せ！</div>
+      <div id="flash"></div>
+      <div class="countdown" id="countdown"></div>
+    </section>
+
+    <!-- フェーズ5 エンディング -->
+    <section id="s-ending" class="screen">
+      <div class="end-wrap">
+        <div class="end-deliver" id="endDeliver">納品！！！！</div>
+        <img id="endWako" src="assets/wako.png" alt="わこはる">
+        <div class="end-cheer" id="endCheer">今夜は飲んでいい——！！</div>
+      </div>
+      <div class="end-tap" id="endTap">タップで結果へ</div>
+    </section>
+
+    <!-- フェーズ4 リザルト -->
+    <section id="s-result" class="screen">
+      <div class="res-wrap">
+        <div class="res-title">納品報告</div>
+        <div class="res-row"><span>誘惑撃破数</span><span class="v"><span id="resScore">0</span>発</span></div>
+        <div class="res-row"><span>集中力残量</span><span class="v" id="resHpPct">0%</span></div>
+        <div class="res-gauge"><div class="res-gauge-fill" id="resHpFill"></div></div>
+        <div class="res-line"></div>
+        <img class="harumaki-res" src="assets/harumaki.jpg" alt="はるまき">
+        <div class="res-serif" id="resSerif"></div>
+        <div class="res-btns">
+          <button class="btn" id="btnRetry">もう一度</button>
+          <button class="btn alt" id="btnTitle">タイトルへ</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const W=1080, H=1920, CX=540, CY=1056; // わこはる中心(top:55%)
+  const stage=document.getElementById('stage');
+
+  /* ---- 画面フィット（実機のロードタイミング・アドレスバー対応で堅牢化） ---- */
+  function fit(){
+    const vw=(window.visualViewport&&window.visualViewport.width)||window.innerWidth||document.documentElement.clientWidth;
+    const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight||document.documentElement.clientHeight;
+    const s=Math.min(vw/W, vh/H);
+    stage.style.transform='scale('+s+')';
+  }
+  ['resize','orientationchange','pageshow','load'].forEach(ev=>window.addEventListener(ev,fit));
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',fit);
+    window.visualViewport.addEventListener('scroll',fit);
+  }
+  // ビューポートのサイズ変化を確実に拾う（アプリ内ブラウザのロード遅延対策の主軸）
+  if(window.ResizeObserver){ new ResizeObserver(fit).observe(document.documentElement); }
+  document.addEventListener('DOMContentLoaded',fit);
+  fit(); requestAnimationFrame(fit);
+  [50,150,300,600,1000].forEach(t=>setTimeout(fit,t)); // 念のため遅延でも再フィット
+
+  /* ---- 画面切替 ---- */
+  const screens=['s-title','s-intro','s-play','s-ending','s-result'];
+  function show(id){screens.forEach(s=>document.getElementById(s).classList.toggle('active', s===id));}
+
+  /* ---- データ ---- */
+  const LIGHT=[
+    "ちょっとXだけ…","バズってる…見なきゃ","1ステージだけ","アプデきてる！",
+    "一杯だけ","今夜は飲み会誘われてる","落書きだけ","推しのファンアート描きたい",
+    "1本だけ","気づいたら3時間経ってた","推しの新曲来た！","プレイリスト作るだけ",
+    "Amazonちょっとだけ","セール終わる前に買わなきゃ","机の上だけ片付ける","部屋全体が気になってきた",
+    "お菓子だけ","デリバリー頼もうかな","外の空気だけ","コンビニ行ったまま帰れない"
+  ];
+  const HEAVY=[
+    "別案件のラフだけ","新しい依頼メール来てる","15分だけ仮眠","もう今日は無理",
+    "グッズページ見るだけ","ライブ配信始まった","転職サイト見るだけ","フリーランスやめたい",
+    "終わったら旅行しよ","もう海外移住しかない"
+  ];
+  const SCOLD_LIGHT=["納期は明日です！","クライアント待ってます！"];
+  const SCOLD_MID=["修正3回目ですよ！","入稿データ揃ってますか！"];
+  const SCOLD_HEAVY=["予算オーバーになります！","契約書、確認しましたか！"];
+  const SCOLD_CRIT=["損害賠償になりますよ！","評判に関わります！"];
+  const SFX=["ソワ…","ムラ…","チラッ","ピコン","ザワ…","ふらっ","ウズウズ"];
+  const BANG=["ドンッ！","バンッ！","ビシッ！","ガツン！","ドカッ！"];
+  const WAKO_MUTTER=["あと少し…","集中、集中","コーヒー切れた","目がしょぼしょぼ","まだいける…","納期ヤバい","ぐぬぬ…","ちょっと休みたい","ああもう！","今日中に…","ねむい…","手が止まる"];
+  const WAKO_HIT=["うわっ","ぐっ…","あぶなっ","気が散る！","だめだめ！","ひっ"];
+  const pick=a=>a[(Math.random()*a.length)|0];
+
+  /* ===== タイトル ===== */
+  document.getElementById('s-title').addEventListener('pointerdown',startIntro);
+
+  /* ===== 導入 ===== */
+  const INTRO=[
+    {t:"はるまき「……納期、いつよ。」",s:""},
+    {t:"はるまき「……わかってるよね。」",s:"（目が笑っていない）"},
+    {t:"はるまき「信じてるから。」",s:"（一番怖い）"}
+  ];
+  let introIdx=0;
+  function startIntro(){
+    show('s-intro');
+    const wrap=document.getElementById('introWrap');
+    wrap.innerHTML='';
+    introIdx=0;
+    document.getElementById('introTap').style.display='none';
+    nextIntro();
+    document.getElementById('s-intro').onpointerdown=nextIntro;
+  }
+  function nextIntro(){
+    const wrap=document.getElementById('introWrap');
+    if(introIdx<INTRO.length){
+      const d=INTRO[introIdx++];
+      const el=document.createElement('div');
+      el.className='serif';
+      el.innerHTML=d.t+(d.s?'<span class="sub">'+d.s+'</span>':'');
+      el.style.marginTop='40px';
+      wrap.appendChild(el);
+      requestAnimationFrame(()=>el.classList.add('show'));
+      if(introIdx===INTRO.length){
+        const tap=document.getElementById('introTap');
+        tap.textContent='タップでゲーム開始';
+        setTimeout(()=>{tap.style.display='block';},700);
+      }
+    }else{
+      document.getElementById('s-intro').onpointerdown=null;
+      startPlay();
+    }
+  }
+
+  /* ===== プレイ ===== */
+  let lures=[], hp=100, score=0, timeLeft=60, running=false;
+  let loopTimer=null, lastTs=0, spawnAcc=0, elapsed=0;
+  let wandering=false, wanderCD=0, wakoTalkCD=0;
+  const wakoEl=document.getElementById('wako');
+  const harumakiPlay=document.getElementById('harumakiPlay');
+  const hpFill=document.getElementById('hpFill');
+  const timerVal=document.getElementById('timerVal');
+  const playScreen=document.getElementById('s-play');
+
+  // 先生をタップ→中央に戻す
+  wakoEl.addEventListener('pointerdown',e=>{e.stopPropagation();if(wandering)returnWako();});
+
+  // 注意文句（ドンッ！）を出す共通関数
+  function showScold(text,x,y,big){
+    const sc=document.createElement('div');
+    sc.className='scold'+(big?' big':'');
+    sc.textContent=text;
+    sc.style.left=x+'px'; sc.style.top=y+'px';
+    playScreen.appendChild(sc);
+    setTimeout(()=>sc.remove(),900);
+  }
+  function harumakiReact(){
+    harumakiPlay.classList.remove('react'); void harumakiPlay.offsetWidth; harumakiPlay.classList.add('react');
+  }
+  // 効果音文字（誘惑出現）
+  function showSfx(text,x,y){
+    const e=document.createElement('div');e.className='sfx';e.textContent=text;
+    e.style.left=Math.max(90,Math.min(W-90,x))+'px';
+    e.style.top=Math.max(280,Math.min(H-100,y))+'px';
+    playScreen.appendChild(e);setTimeout(()=>e.remove(),900);
+  }
+  // 撃破の擬音（ドンッ！）
+  function showBang(text,x,y){
+    const e=document.createElement('div');e.className='bang';e.textContent=text;
+    e.style.left=x+'px';e.style.top=y+'px';
+    playScreen.appendChild(e);setTimeout(()=>e.remove(),850);
+  }
+  // わこはる先生のつぶやき
+  function wakoSay(text){
+    const wx=parseFloat(wakoEl.style.left)/100*W, wy=parseFloat(wakoEl.style.top)/100*H;
+    const b=document.createElement('div');b.className='wako-bubble';b.textContent=text;
+    b.style.left=wx+'px';b.style.top=(wy-210)+'px';
+    playScreen.appendChild(b);setTimeout(()=>b.remove(),1900);
+  }
+
+  function startPlay(){
+    // reset
+    lures.forEach(l=>l.el.remove()); lures=[];
+    document.querySelectorAll('.scold,.sfx,.bang,.wako-bubble').forEach(s=>s.remove());
+    hp=100; score=0; timeLeft=60; elapsed=0; spawnAcc=0; running=false;
+    wandering=false; wanderCD=7+Math.random()*5; wakoTalkCD=5+Math.random()*4;
+    wakoEl.classList.remove('wander'); wakoEl.style.left='50%'; wakoEl.style.top='55%';
+    document.getElementById('wanderWarn').classList.remove('on');
+    updateHud();
+    show('s-play');
+    // カウントダウン演出
+    const cd=document.getElementById('countdown');
+    let n=3; cd.textContent=n; cd.style.display='flex';
+    const ci=setInterval(()=>{
+      n--;
+      if(n>0){cd.textContent=n;}
+      else if(n===0){cd.textContent='START';}
+      else{clearInterval(ci);cd.style.display='none';beginLoop();}
+    },700);
+  }
+
+  function beginLoop(){
+    running=true; lastTs=0;
+    playScreen.addEventListener('pointerdown',onMiss); // 空タップ用ではなく、lure個別で処理
+    loopTimer=setInterval(()=>loop(performance.now()),16);
+  }
+  // 空タップは何もしない（lureのstopPropagationで撃破処理）
+  function onMiss(){ /* no-op */ }
+
+  function spawnLure(){
+    const heavy=Math.random()<0.32;
+    const text=heavy?pick(HEAVY):pick(LIGHT);
+    const el=document.createElement('div');
+    el.className='lure'+(heavy?' heavy':'');
+    el.textContent=text;
+    // 出現位置：四辺の外側
+    const side=(Math.random()*4)|0;
+    let x,y;
+    if(side===0){x=Math.random()*W; y=-80;}
+    else if(side===1){x=W+80; y=200+Math.random()*(H-400);}
+    else if(side===2){x=Math.random()*W; y=H+80;}
+    else {x=-80; y=200+Math.random()*(H-400);}
+    el.style.left=x+'px'; el.style.top=y+'px';
+    el.style.transform='translate(-50%,-50%) rotate('+(Math.random()*10-5)+'deg)'; // 漫画的な傾き
+    const base=heavy?3.0:2.4;
+    const speed=base*(1+elapsed/65); // 時間で徐々に加速（強め）
+    const dx=CX-x, dy=CY-y, d=Math.hypot(dx,dy)||1;
+    const lure={el,x,y,vx:dx/d*speed,vy:dy/d*speed,heavy};
+    el.addEventListener('pointerdown',ev=>{ev.stopPropagation();hitLure(lure);});
+    lures.push(lure);
+    playScreen.appendChild(el);
+    if(Math.random()<0.6) showSfx(pick(SFX),x,y); // 出現時にチラッと効果音
+  }
+
+  function hitLure(lure){
+    if(lure.dead) return;
+    lure.dead=true;
+    score++;
+    // 撃破エフェクト
+    lure.el.classList.add('pop');
+    setTimeout(()=>lure.el.remove(),250);
+    lures=lures.filter(l=>l!==lure);
+    // はるまきの注意文句（ドンッ！）
+    let pool;
+    if(!lure.heavy) pool=Math.random()<0.5?SCOLD_LIGHT:SCOLD_MID;
+    else pool=Math.random()<0.5?SCOLD_HEAVY:SCOLD_CRIT;
+    showScold(pick(pool),lure.x,lure.y,lure.heavy);
+    harumakiReact();
+    if(lure.heavy || Math.random()<0.4) showBang(pick(BANG),lure.x,lure.y-30); // 撃破の擬音
+    if(lure.heavy){ // 重い誘惑撃破はさらにドンッと画面が揺れる
+      playScreen.classList.remove('shake'); void playScreen.offsetWidth; playScreen.classList.add('shake');
+    }
+  }
+
+  function reachCenter(lure){
+    lure.dead=true;
+    lure.el.remove();
+    lures=lures.filter(l=>l!==lure);
+    hp-=lure.heavy?14:7;
+    if(hp<0)hp=0;
+    updateHud();
+    // 被弾演出
+    wakoEl.classList.remove('hit'); void wakoEl.offsetWidth; wakoEl.classList.add('hit');
+    const fl=document.getElementById('flash');
+    fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
+    if(hp>0 && Math.random()<0.6) wakoSay(pick(WAKO_HIT)); // 被弾時のひとこと
+    if(hp<=0) endGame(false);
+  }
+
+  function updateHud(){
+    hpFill.style.width=hp+'%';
+    hpFill.style.background = hp>50?'linear-gradient(90deg,var(--good),#7cd14a)'
+                          : hp>25?'linear-gradient(90deg,var(--warn),#ffd24a)'
+                          : 'linear-gradient(90deg,var(--bad),#ff7a5a)';
+    const sec=Math.max(0,Math.ceil(timeLeft));
+    timerVal.textContent='00:'+(sec<10?'0'+sec:sec);
+  }
+
+  function loop(ts){
+    if(!running)return;
+    if(!lastTs)lastTs=ts;
+    let dt=(ts-lastTs)/1000; if(dt>0.05)dt=0.05; lastTs=ts;
+    elapsed+=dt; timeLeft-=dt;
+    const f=dt*60; // フレーム正規化
+
+    // スポーン（時間で頻度up・強め）
+    spawnAcc+=dt;
+    const interval=Math.max(0.42, 1.1 - elapsed*0.013);
+    if(spawnAcc>=interval){spawnAcc=0; spawnLure();}
+
+    // わこはる先生がちょこちょこ独り言
+    wakoTalkCD-=dt;
+    if(wakoTalkCD<=0){ if(!wandering) wakoSay(pick(WAKO_MUTTER)); wakoTalkCD=6+Math.random()*6; }
+
+    // 先生がたまにフラフラ動く／徘徊中はじわ集中力が減る
+    if(!wandering){
+      wanderCD-=dt;
+      if(wanderCD<=0) startWander();
+    }else{
+      hp-=1.6*dt; if(hp<0)hp=0;
+      if(hp<=0){ updateHud(); running=false; endGame(false); return; }
+    }
+
+    // 移動（中央＝納期に向かう。到達で集中力減）
+    for(let i=lures.length-1;i>=0;i--){
+      const l=lures[i]; if(l.dead)continue;
+      l.x+=l.vx*f; l.y+=l.vy*f;
+      l.el.style.left=l.x+'px'; l.el.style.top=l.y+'px';
+      if(Math.hypot(CX-l.x,CY-l.y)<150){reachCenter(l);}
+    }
+
+    updateHud();
+    if(timeLeft<=0){ running=false; endGame(true); return; }
+  }
+
+  function endGame(cleared){
+    running=false;
+    if(loopTimer){clearInterval(loopTimer);loopTimer=null;}
+    playScreen.removeEventListener('pointerdown',onMiss);
+    lures.forEach(l=>l.el.remove()); lures=[];
+    if(cleared){ startEnding(); }
+    else { showResult(false); }
+  }
+
+  /* 先生が誘惑に釣られてフラフラ動く → タップで中央へ戻す */
+  const wanderWarn=document.getElementById('wanderWarn');
+  function startWander(){
+    wandering=true;
+    wakoEl.classList.add('wander');
+    wanderWarn.classList.add('on');
+    const left=Math.random()<0.5?20:80;
+    wakoEl.style.left=left+'%';
+    wakoEl.style.top=(46+Math.random()*16)+'%';
+  }
+  function returnWako(){
+    if(!wandering)return;
+    wandering=false;
+    wakoEl.classList.remove('wander');
+    wanderWarn.classList.remove('on');
+    wakoEl.style.left='50%'; wakoEl.style.top='55%';
+    wanderCD=7+Math.random()*5;
+    showScold('戻ってください！',CX,CY-280,true);
+    harumakiReact();
+  }
+
+  /* ===== エンディング ===== */
+  let confettiTimer=null;
+  function startEnding(){
+    show('s-ending');
+    const d=document.getElementById('endDeliver');
+    const w=document.getElementById('endWako');
+    const c=document.getElementById('endCheer');
+    const tap=document.getElementById('endTap');
+    d.classList.remove('show'); w.classList.remove('show'); c.classList.remove('show');
+    void d.offsetWidth;
+    d.classList.add('show'); w.classList.add('show'); c.classList.add('show');
+    startConfetti();
+    const end=document.getElementById('s-ending');
+    // 入場ガード：連打で結果へ飛ばないよう少し待ってから有効化（tapは上で宣言済み）
+    end.onpointerdown=null; tap.style.visibility='hidden';
+    setTimeout(()=>{
+      tap.style.visibility='visible';
+      end.onpointerdown=()=>{ end.onpointerdown=null; stopConfetti(); showResult(true); };
+    },900);
+  }
+  function startConfetti(){
+    const colors=['#e8412e','#f7b500','#39b54a','#3a8ddb','#ffffff','#ff6fae'];
+    const end=document.getElementById('s-ending');
+    stopConfetti();
+    confettiTimer=setInterval(()=>{
+      const p=document.createElement('div');
+      p.className='confetti';
+      p.style.left=(Math.random()*W)+'px';
+      p.style.background=colors[(Math.random()*colors.length)|0];
+      const dur=2.2+Math.random()*1.6;
+      p.style.transition='transform '+dur+'s linear, opacity '+dur+'s linear';
+      end.appendChild(p);
+      requestAnimationFrame(()=>{
+        p.style.transform='translateY('+(H+120)+'px) rotate('+(Math.random()*720-360)+'deg)';
+        p.style.opacity='0';
+      });
+      setTimeout(()=>p.remove(),dur*1000+100);
+    },90);
+  }
+  function stopConfetti(){ if(confettiTimer){clearInterval(confettiTimer);confettiTimer=null;} }
+
+  /* ===== リザルト ===== */
+  function showResult(cleared){
+    show('s-result');
+    // 入場ガード：連打でボタンを誤爆しないよう少し待ってから有効化
+    const btns=document.querySelector('.res-btns');
+    btns.style.pointerEvents='none';
+    setTimeout(()=>{btns.style.pointerEvents='auto';},800);
+    document.getElementById('resScore').textContent=score;
+    const pct=Math.round(hp);
+    document.getElementById('resHpPct').textContent=pct+'%';
+    const fill=document.getElementById('resHpFill');
+    fill.style.width=pct+'%';
+    fill.style.background = pct>50?'linear-gradient(90deg,var(--good),#7cd14a)'
+                          : pct>25?'linear-gradient(90deg,var(--warn),#ffd24a)'
+                          : 'linear-gradient(90deg,var(--bad),#ff7a5a)';
+    let main,sub;
+    if(!cleared){ main="はるまき「……。」"; sub="クライアントに、連絡しました。"; }
+    else if(pct>=95){ main="はるまき「……完璧です。」"; sub="次の案件、もう入ってます。"; }
+    else if(pct>=70){ main="はるまき「まあ、及第点ですね。」"; sub="次はもっと早く。"; }
+    else if(pct>=40){ main="はるまき「……ギリギリですね。」"; sub="納期、守れてよかったです。"; }
+    else { main="はるまき「大丈夫ですか。」"; sub="修正、来てますよ。"; }
+    document.getElementById('resSerif').innerHTML=main+'<span class="sub">'+sub+'</span>';
+  }
+  document.getElementById('btnRetry').addEventListener('pointerdown',e=>{e.stopPropagation();startPlay();});
+  document.getElementById('btnTitle').addEventListener('pointerdown',e=>{e.stopPropagation();show('s-title');});
+
+})();
+</script>
+</body>
+</html>
