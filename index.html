@@ -105,6 +105,16 @@
   }
   .lure.heavy::after{border-top-color:#c0231b;}
   .lure.heavy::before{border-top-color:#fff;}
+  /* 回復アイテム（コーヒー等）＝緑のだ円。味方と分かる色 */
+  .lure.heal{background:#e9ffe9;color:#15803a;border-color:#1c9e44;border-width:4px;font-weight:800;}
+  .lure.heal::after{border-top-color:#1c9e44;}
+  .lure.heal::before{border-top-color:#e9ffe9;}
+  /* 回復ポップ（緑） */
+  .heal-pop{position:absolute;z-index:25;transform:translate(-50%,-50%) rotate(-3deg);
+    font-size:50px;font-weight:900;color:#fff;white-space:nowrap;
+    padding:16px 38px;border-radius:50%/60%;background:#1c9e44;
+    border:5px solid #fff;box-shadow:0 0 0 5px #0c5e28,0 8px 18px rgba(0,0,0,.5);
+    animation:scoldbang .9s cubic-bezier(.2,1.5,.35,1) forwards;pointer-events:none;}
   .lure.pop{animation:pop .25s ease forwards;}
   @keyframes pop{to{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
 
@@ -340,6 +350,8 @@
   const BANG=["ドンッ！","バンッ！","ビシッ！","ガツン！","ドカッ！"];
   const WAKO_MUTTER=["あと少し…","集中、集中","コーヒー切れた","目がしょぼしょぼ","まだいける…","納期ヤバい","ぐぬぬ…","ちょっと休みたい","ああもう！","今日中に…","ねむい…","手が止まる"];
   const WAKO_HIT=["うわっ","ぐっ…","あぶなっ","気が散る！","だめだめ！","ひっ"];
+  const HEAL=["コーヒー一杯！","エナドリ投入！","栄養ドリンク！","カフェイン補給","チョコ補給","深呼吸…ふぅ","ストレッチ！","背伸びでシャキッ"];
+  const WAKO_HEAL=["効くー！","シャキッ","復活！","いける！","ふぅ…","よし！","目が覚めた"];
   const pick=a=>a[(Math.random()*a.length)|0];
 
   /* ===== タイトル ===== */
@@ -431,7 +443,7 @@
   function startPlay(){
     // reset
     lures.forEach(l=>l.el.remove()); lures=[];
-    document.querySelectorAll('.scold,.sfx,.bang,.wako-bubble').forEach(s=>s.remove());
+    document.querySelectorAll('.scold,.sfx,.bang,.wako-bubble,.heal-pop').forEach(s=>s.remove());
     hp=100; score=0; timeLeft=60; elapsed=0; spawnAcc=0; running=false;
     wandering=false; wanderCD=7+Math.random()*5; wakoTalkCD=5+Math.random()*4;
     wakoEl.classList.remove('wander'); wakoEl.style.left='50%'; wakoEl.style.top='55%';
@@ -458,10 +470,12 @@
   function onMiss(){ /* no-op */ }
 
   function spawnLure(){
-    const heavy=Math.random()<0.32;
-    const text=heavy?pick(HEAVY):pick(LIGHT);
+    const healChance=hp<40?0.2:0.11; // 集中力が低いほど回復が出やすい（救済）
+    const heal=Math.random()<healChance;
+    const heavy=!heal && Math.random()<0.32;
+    const text=heal?pick(HEAL):(heavy?pick(HEAVY):pick(LIGHT));
     const el=document.createElement('div');
-    el.className='lure'+(heavy?' heavy':'');
+    el.className='lure'+(heal?' heal':(heavy?' heavy':''));
     el.textContent=text;
     // 出現位置：四辺の外側
     const side=(Math.random()*4)|0;
@@ -472,24 +486,25 @@
     else {x=-80; y=200+Math.random()*(H-400);}
     el.style.left=x+'px'; el.style.top=y+'px';
     el.style.transform='translate(-50%,-50%) rotate('+(Math.random()*10-5)+'deg)'; // 漫画的な傾き
-    const base=heavy?3.0:2.4;
+    const base=heal?2.2:(heavy?3.0:2.4);
     const speed=base*(1+elapsed/65); // 時間で徐々に加速（強め）
     const dx=CX-x, dy=CY-y, d=Math.hypot(dx,dy)||1;
-    const lure={el,x,y,vx:dx/d*speed,vy:dy/d*speed,heavy};
+    const lure={el,x,y,vx:dx/d*speed,vy:dy/d*speed,heavy,heal};
     el.addEventListener('pointerdown',ev=>{ev.stopPropagation();hitLure(lure);});
     lures.push(lure);
     playScreen.appendChild(el);
-    if(Math.random()<0.6) showSfx(pick(SFX),x,y); // 出現時にチラッと効果音
+    if(!heal && Math.random()<0.6) showSfx(pick(SFX),x,y); // 出現時にチラッと効果音
   }
 
   function hitLure(lure){
     if(lure.dead) return;
     lure.dead=true;
-    score++;
     // 撃破エフェクト
     lure.el.classList.add('pop');
     setTimeout(()=>lure.el.remove(),250);
     lures=lures.filter(l=>l!==lure);
+    if(lure.heal){ healUp(lure); return; } // 回復アイテムは撃破でなく回復
+    score++;
     // はるまきの注意文句（ドンッ！）
     let pool;
     if(!lure.heavy) pool=Math.random()<0.5?SCOLD_LIGHT:SCOLD_MID;
@@ -502,16 +517,32 @@
     }
   }
 
+  // 回復アイテムをタップ＝集中力回復
+  function healUp(lure){
+    hp=Math.min(100, hp+15);
+    updateHud();
+    const p=document.createElement('div');
+    p.className='heal-pop'; p.textContent='回復！';
+    p.style.left=lure.x+'px'; p.style.top=lure.y+'px';
+    playScreen.appendChild(p); setTimeout(()=>p.remove(),900);
+    const fl=document.getElementById('flash');
+    fl.style.background='rgba(70,210,100,.55)';
+    fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
+    wakoSay(pick(WAKO_HEAL));
+  }
+
   function reachCenter(lure){
     lure.dead=true;
     lure.el.remove();
     lures=lures.filter(l=>l!==lure);
+    if(lure.heal) return; // 回復アイテムを取り損ねただけ（ペナルティなし）
     hp-=lure.heavy?14:7;
     if(hp<0)hp=0;
     updateHud();
     // 被弾演出
     wakoEl.classList.remove('hit'); void wakoEl.offsetWidth; wakoEl.classList.add('hit');
     const fl=document.getElementById('flash');
+    fl.style.background='#fff';
     fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
     if(hp>0 && Math.random()<0.6) wakoSay(pick(WAKO_HIT)); // 被弾時のひとこと
     if(hp<=0) endGame(false);
